@@ -1,0 +1,12 @@
+E:\_MAUIProjects\PdfFormFramework\bin\Debug\net9.0\PdfFormFramework.deps.json
+E:\_MAUIProjects\PdfFormFramework\bin\Debug\net9.0\PdfFormFramework.dll
+E:\_MAUIProjects\PdfFormFramework\bin\Debug\net9.0\PdfFormFramework.pdb
+E:\_MAUIProjects\PdfFormFramework\obj\Debug\net9.0\PdfFormFramework.csproj.AssemblyReference.cache
+E:\_MAUIProjects\PdfFormFramework\obj\Debug\net9.0\PdfFormFramework.GeneratedMSBuildEditorConfig.editorconfig
+E:\_MAUIProjects\PdfFormFramework\obj\Debug\net9.0\PdfFormFramework.AssemblyInfoInputs.cache
+E:\_MAUIProjects\PdfFormFramework\obj\Debug\net9.0\PdfFormFramework.AssemblyInfo.cs
+E:\_MAUIProjects\PdfFormFramework\obj\Debug\net9.0\PdfFormFramework.csproj.CoreCompileInputs.cache
+E:\_MAUIProjects\PdfFormFramework\obj\Debug\net9.0\PdfFormFramework.dll
+E:\_MAUIProjects\PdfFormFramework\obj\Debug\net9.0\refint\PdfFormFramework.dll
+E:\_MAUIProjects\PdfFormFramework\obj\Debug\net9.0\PdfFormFramework.pdb
+E:\_MAUIProjects\PdfFormFramework\obj\Debug\net9.0\ref\PdfFormFramework.dll
