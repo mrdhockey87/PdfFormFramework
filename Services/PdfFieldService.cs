@@ -447,15 +447,28 @@ public class PdfFieldService
             if (doc.AcroForm == null)
                 return;
 
+            Console.WriteLine($"Applying values to {values.Count} fields");
+
             // Apply values to fields, recursively if needed
-            ApplyValuesToFields(doc.AcroForm.Fields, values);
+            try
+            {
+                ApplyValuesToFields(doc.AcroForm.Fields, values);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in ApplyValuesToFields: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
 
             // Save the changes
+            Console.WriteLine($"Saving changes to {_tempFile}");
             doc.Save(_tempFile);
+            Console.WriteLine("PDF saved successfully");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error applying field values: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
         }
     }
 
@@ -464,19 +477,33 @@ public class PdfFieldService
         if (fields == null)
             return;
 
-        foreach (PdfAcroField field in fields)
+        // Use a safer iteration approach
+        for (int i = 0; i < fields.Count; i++)
         {
             try
             {
+                // Get field safely
+                PdfAcroField? field = null;
+                try
+                {
+                    field = fields[i];
+                }
+                catch (InvalidCastException ex)
+                {
+                    Console.WriteLine($"Skipping field at index {i} due to casting issue: {ex.Message}");
+                    continue;
+                }
+
                 // Skip null or unnamed fields
                 if (field == null || string.IsNullOrEmpty(field.Name))
                     continue;
 
+                Console.WriteLine($"Processing field: {field.Name}");
+
                 bool hasChildFields = false;
                 try
                 {
-                    // FIXED: Explicitly check if Fields is null before checking Count
-                    // Some valid fields may have a null Fields property if they don't have child fields
+                    // Explicitly check if Fields is null before checking Count
                     if (field.Fields != null)
                     {
                         if (field.Fields.Count > 0)
@@ -494,10 +521,10 @@ public class PdfFieldService
                     }
                     else
                     {
-                        //Need this to catch the exception and continue
                         Console.WriteLine($"Error checking child fields for {field.Name}: {ex.Message}");
                     }
                 }
+
                 // Process child fields if any
                 if (hasChildFields)
                 {
@@ -507,60 +534,75 @@ public class PdfFieldService
 
                 // Check if we have a value for this field
                 if (!values.TryGetValue(field.Name, out string? value) || value == null)
+                {
+                    Console.WriteLine($"No value found for field: {field.Name}");
                     continue;
+                }
 
-                // Apply value based on field type
-                if (field is PdfTextField textField)
+                Console.WriteLine($"Setting field '{field.Name}' to value: '{value}'");
+
+                try
                 {
-                    textField.Value = new PdfString(value);
-                }
-                else if (field is PdfCheckBoxField checkBox)
-                {
-                    bool isChecked = value.Equals("Yes", StringComparison.OrdinalIgnoreCase) ||
-                                    value.Equals("True", StringComparison.OrdinalIgnoreCase) ||
-                                    value.Equals("1", StringComparison.OrdinalIgnoreCase);
-                    checkBox.Checked = isChecked;
-                }
-                else if (field is PdfComboBoxField comboBox)
-                {
-                    var options = GetComboOptions(comboBox);
-                    int index = options.FindIndex(o => o.Equals(value, StringComparison.OrdinalIgnoreCase));
-                    if (index >= 0)
+                    // Apply value based on field type
+                    if (field is PdfTextField textField)
+                    {
+                        textField.Value = new PdfString(value);
+                        Console.WriteLine($"Set text field value");
+                    }
+                    else if (field is PdfCheckBoxField checkBox)
+                    {
+                        bool isChecked = value.Equals("Yes", StringComparison.OrdinalIgnoreCase) ||
+                                        value.Equals("True", StringComparison.OrdinalIgnoreCase) ||
+                                        value.Equals("1", StringComparison.OrdinalIgnoreCase);
+                        checkBox.Checked = isChecked;
+                        Console.WriteLine($"Set checkbox value to: {isChecked}");
+                    }
+                    else if (field is PdfComboBoxField comboBox)
                     {
                         comboBox.Value = new PdfString(value);
+                        Console.WriteLine($"Set combobox value");
+                    }
+                    else if (field is PdfRadioButtonField radioButton)
+                    {
+                        // Try to set by index if the value is numeric
+                        if (int.TryParse(value, out int index))
+                        {
+                            radioButton.SelectedIndex = index;
+                        }
+                        else
+                        {
+                            // Otherwise try to set by name
+                            field.Elements.SetName("/V", $"/{value}");
+                        }
+                        Console.WriteLine($"Set radio button value");
                     }
                     else
                     {
-                        // If the value is not in options, try to set it directly
-                        comboBox.Value = new PdfString(value);
+                        // For other field types or as a fallback, set value directly using PdfString
+                        try
+                        {
+                            field.Value = new PdfString(value);
+                            Console.WriteLine($"Set generic field value");
+                        }
+                        catch (InvalidCastException)
+                        {
+                            // Try alternative approach if direct assignment fails
+                            field.Elements.SetString("/V", value);
+                            Console.WriteLine($"Set value using Elements dictionary");
+                        }
                     }
                 }
-                else if (field is PdfRadioButtonField radioButton)
+                catch (Exception ex)
                 {
-                    // Try to set by index if the value is numeric
-                    if (int.TryParse(value, out int index))
-                    {
-                        radioButton.SelectedIndex = index;
-                    }
-                    else
-                    {
-                        // Otherwise try to set by name
-                        field.Elements.SetName("/V", $"/{value}");
-                    }
-                }
-                else
-                {
-                    // For other field types or as a fallback, set value directly
-                    field.Value = new PdfString(value);
+                    Console.WriteLine($"Error setting value for field {field.Name}: {ex.Message}");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error applying value to field {field.Name}: {ex.Message}");
+                Console.WriteLine($"Error processing field at index {i}: {ex.Message}");
             }
         }
     }
-
     // Keep these methods for backward compatibility
     private PdfFieldType DetermineFieldType(PdfAcroField field)
     {
