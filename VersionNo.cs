@@ -32,7 +32,9 @@ namespace PdfFormViewerFramework
 }
 /*Version history:
  *
- *  10-15-25:v5.0.0: Continued to work on getting the form to display properly. And the Model to be correct, Added a VIew Model to the MainPage 
+ *: v5.0.2: I got the form to display properly so the basic framework is working. The save function is working however I need to give it a way to change the 
+ *                   file name. The print as if I want to share the document, I need to fix that so it opens the print function of the system it is on. mdail 10-16-25
+ *  10-15-25:v5.0.1: Continued to work on getting the form to display properly. And the Model to be correct, Added a VIew Model to the MainPage 
  *                   to help get it all to work mdail 10-15-25
  *  10-9-25: v5.0.0: Started to convert to displaying a form to collect data to fill the form. Then sending the data to the framework
  *                   so the framework can fill in the data and display a filled in form  mdail 10-14-25
