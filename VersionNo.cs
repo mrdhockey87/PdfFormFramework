@@ -32,6 +32,7 @@ namespace PdfFormViewerFramework
 }
 /*Version history:
  *
+ *: v6.1.3: I finally got the framework to print the pdf form properly on Windows, I still need to test on other platforms mdail 10-17-25
  *: v5.0.2: I got the form to display properly so the basic framework is working. The save function is working however I need to give it a way to change the 
  *                   file name. The print as if I want to share the document, I need to fix that so it opens the print function of the system it is on. mdail 10-16-25
  *  10-15-25:v5.0.1: Continued to work on getting the form to display properly. And the Model to be correct, Added a VIew Model to the MainPage 
