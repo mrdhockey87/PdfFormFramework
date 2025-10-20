@@ -1,28 +1,33 @@
 ﻿#if IOS
-using UIKit;
 using Foundation;
-using Microsoft.Maui.ApplicationModel.DataTransfer;
+using Microsoft.Maui.ApplicationModel;
+using System.IO;
+using UIKit;
 
 namespace PdfFormFramework.Printing;
 
 public partial class PdfPrinterHelper
 {
-    static public partial async Task PlatformPrintOrEmailAsync(string filePath)
+    public static partial async Task PlatformPrintOrEmailAsync(string filePath)
     {
-        try
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            return;
+
+        await MainThread.InvokeOnMainThreadAsync(() =>
         {
-            var controller = UIPrintInteractionController.SharedPrintController;
-            controller.PrintingItem = NSData.FromFile(filePath);
-            controller.Present(true, null);
-        }
-        catch
-        {
-            await Share.RequestAsync(new ShareFileRequest
-            {
-                Title = "Send PDF via email",
-                File = new ShareFile(filePath)
-            });
-        }
+            if (!UIPrintInteractionController.PrintingAvailable)
+                return;
+
+            var ctrl = UIPrintInteractionController.SharedPrintController;
+
+            var info = UIPrintInfo.PrintInfo;
+            info.OutputType = UIPrintInfoOutputType.General;
+            info.JobName = Path.GetFileName(filePath);
+            ctrl.PrintInfo = info;
+            ctrl.PrintingItem = NSUrl.FromFilename(filePath);
+
+            ctrl.Present(true, null);
+        });
     }
 }
 #endif

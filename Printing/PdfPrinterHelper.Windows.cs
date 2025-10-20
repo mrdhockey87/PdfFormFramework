@@ -1,159 +1,401 @@
 ﻿#if WINDOWS
 using Microsoft.Maui.ApplicationModel;
-using Microsoft.Maui.ApplicationModel.Communication;
-using Microsoft.Maui.ApplicationModel.DataTransfer;
-using Microsoft.Maui.Controls; // for Page, NavigationPage, Shell, TabbedPage
+using Microsoft.Maui.Controls;
 using System.Diagnostics;
-using System.Linq;
+using System.IO;
 using System.Runtime.InteropServices;
-using Windows.Devices.Enumeration; // <-- use WinRT to enumerate printers
 
+// WebView2 (WinUI 3)
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.Web.WebView2.Core;
+
+// WinForms + GDI
+using System.Drawing;
+using System.Drawing.Printing;
+using System.Windows.Forms;
+using GdiImage = System.Drawing.Image; // disambiguate Image
+
+// SkiaSharp placeholder renderer (swap with your PDF renderer)
+using SkiaSharp;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.Data.Pdf;
+using Windows.Storage.Streams;
+using Windows.Graphics.Imaging;
+    
 namespace PdfFormFramework.Printing;
 
 public partial class PdfPrinterHelper
 {
-    [DllImport("winspool.drv", CharSet = CharSet.Auto, SetLastError = true)]
-    private static extern bool EnumPrinters(
-        int flags, string name, int level, IntPtr pPrinterEnum,
-        int cbBuf, out int pcbNeeded, out int pcReturned);
+    // In-memory pages for GDI printing
+    private static readonly List<GdiImage> s_pages = new();
+    private static int s_pageIndex;
 
-    private const int PRINTER_ENUM_LOCAL = 0x00000002;
-    private const int PRINTER_ENUM_CONNECTIONS = 0x00000004;
-
+    // Entry: Prefer WinForms/GDI pipeline; fallback to WebView2; then default viewer
     public static partial async Task PlatformPrintOrEmailAsync(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
             return;
 
-        bool hasPrinter = HasAnyPrinterAsync();
-
-        if (hasPrinter)
-        {
-            // Try to invoke the default app's print for this PDF
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = filePath,
-                    Verb = "print",
-                    UseShellExecute = true,
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
-                };
-                Process.Start(psi);
-                return;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Print verb failed: {ex.Message}");
-
-                // Fallback: open in default handler so user can print manually
-                try
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = filePath,
-                        UseShellExecute = true
-                    });
-                    return;
-                }
-                catch (Exception ex2)
-                {
-                    Debug.WriteLine($"Open fallback failed: {ex2.Message}");
-                    // Continue to email prompt below
-                }
-            }
-        }
-
-        // No printers found or printing failed: ask user to email
-        bool sendEmail = false;
+        // 1) Preferred: WinForms printer dialog + GDI print (no Acrobat/PrintManager)
         try
         {
-            var page = GetActivePage();
-            if (page != null)
+            var ok = await PrintWithWinFormsAsync(filePath);
+            if (ok) return;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"WinForms/GDI print failed: {ex.Message}");
+        }
+
+        // 2) Fallback: system print dialog via WebView2 (Edge PDF viewer)
+        try
+        {
+            await ShowSystemPrintDialogAsync(filePath);
+            return;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"WebView2 print fallback failed: {ex.Message}");
+        }
+
+        // 3) Last resort: open in default viewer
+        try
+        {
+            await OpenInDefaultViewerAsync(filePath);
+        }
+        catch { /* ignore */ }
+    }
+
+    // WinForms print dialog + GDI print pipeline
+    private static async Task<bool> PrintWithWinFormsAsync(string filePath)
+    {
+        s_pages.Clear();
+        var rendered = await RenderPdfToBitmapsAsync(filePath);
+        s_pages.AddRange(rendered);
+        if (s_pages.Count == 0) return false;
+
+        bool printed = false;
+
+        await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            using var dlg = new PrintDialog
             {
-                sendEmail = await MainThread.InvokeOnMainThreadAsync(() =>
-                    page.DisplayAlert(
-                        "No printer available",
-                        "No printers were found. Would you like to email the form instead?",
-                        "Email", "Cancel"));
+                UseEXDialog = true,
+                AllowSomePages = false,
+                AllowSelection = false,
+                ShowNetwork = true
+            };
+
+            using var doc = new PrintDocument();
+            doc.DocumentName = Path.GetFileName(filePath);
+
+            // Fill the whole page: no margins, origin at physical page
+            doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
+            doc.OriginAtMargins = false;
+
+            doc.PrintPage += OnPrintPage;
+
+            dlg.Document = doc;
+            if (dlg.ShowDialog() == DialogResult.OK)
+            {
+                s_pageIndex = 0;
+                try
+                {
+                    doc.Print();
+                    printed = true;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Print failed: {ex.Message}");
+                    printed = false;
+                }
             }
-            else
+        });
+
+        foreach (var img in s_pages) img.Dispose();
+        s_pages.Clear();
+
+        return printed;
+    }
+
+    private static void OnPrintPage(object? sender, PrintPageEventArgs e)
+    {
+        var img = s_pages[s_pageIndex];
+
+        // Let GDI scale the bitmap to fit the printable area. Keeps units consistent.
+        e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        e.Graphics.PixelOffsetMode   = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+        e.Graphics.SmoothingMode     = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+
+        e.Graphics.DrawImage(img, e.MarginBounds);
+
+        s_pageIndex++;
+        e.HasMorePages = s_pageIndex < s_pages.Count;
+    }
+
+    // Render PDF pages to GDI bitmaps using Windows.Data.Pdf (no Pdfium required)
+    private static async Task<List<GdiImage>> RenderPdfToBitmapsAsync(string filePath)
+    {
+        var outputs = new List<GdiImage>();
+
+        try
+        {
+            using var fs = File.OpenRead(filePath);
+            IRandomAccessStream ras = fs.AsRandomAccessStream();
+
+            PdfDocument pdf = await PdfDocument.LoadFromStreamAsync(ras);
+            uint pageCount = pdf.PageCount;
+            const double targetDpi = 300.0; // adjust as desired
+
+            for (uint i = 0; i < pageCount; i++)
             {
-                sendEmail = true;
+                using PdfPage page = pdf.GetPage(i);
+
+                // Convert page size from DIPs (1/96") to pixels at target DPI
+                var sizeDip = page.Size;
+                uint pxW = (uint)Math.Max(1, Math.Round(sizeDip.Width  * (targetDpi / 96.0)));
+                uint pxH = (uint)Math.Max(1, Math.Round(sizeDip.Height * (targetDpi / 96.0)));
+
+                using var pageStream = new InMemoryRandomAccessStream();
+                var opts = new PdfPageRenderOptions
+                {
+                    DestinationWidth  = pxW,
+                    DestinationHeight = pxH,
+                    BackgroundColor   = Windows.UI.Color.FromArgb(255, 255, 255, 255) // white bg
+                };
+                await page.RenderToStreamAsync(pageStream, opts);
+                pageStream.Seek(0);
+
+                // Decode frame and re-encode as PNG
+                var decoder = await BitmapDecoder.CreateAsync(pageStream);
+                var softBmp = await decoder.GetSoftwareBitmapAsync();
+                var converted = SoftwareBitmap.Convert(
+                    softBmp,
+                    BitmapPixelFormat.Bgra8,
+                    BitmapAlphaMode.Premultiplied);
+
+                using var pngStream = new InMemoryRandomAccessStream();
+                var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, pngStream);
+                encoder.SetSoftwareBitmap(converted);
+                await encoder.FlushAsync();
+                pngStream.Seek(0);
+
+                // GDI image from managed stream; clone to detach from stream
+                using var managed = pngStream.AsStreamForRead();
+                using var ms = new MemoryStream();
+                await managed.CopyToAsync(ms);
+                ms.Position = 0;
+
+                using var img = GdiImage.FromStream(ms);
+                var clone = new Bitmap(img);
+                clone.SetResolution((float)targetDpi, (float)targetDpi); // helps scaling
+                outputs.Add(clone);
+
+                // Optional: write first page for debugging
+                // if (i == 0) clone.Save(Path.Combine(FileSystem.CacheDirectory, "rendered_page1.png"));
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Prompt failed: {ex.Message}");
-            sendEmail = true;
+            Debug.WriteLine($"RenderPdfToBitmapsAsync (Windows.Data.Pdf) failed: {ex.Message}");
         }
 
-        if (sendEmail)
+        return outputs;
+    }
+
+    // System print dialog via WebView2 (Edge PDF viewer)
+    private static async Task ShowSystemPrintDialogAsync(string filePath)
+    {
+        var printCopyPath = await CreatePrintCopyAsync(filePath);
+
+        var page = new ContentPage { Title = "Print Preview" };
+        var mauiWebView = new WebView
+        {
+            HorizontalOptions = LayoutOptions.Fill,
+            VerticalOptions = LayoutOptions.Fill
+        };
+        var closeBtn = new Microsoft.Maui.Controls.Button
+        {
+            Text = "Close",
+            HorizontalOptions = LayoutOptions.End,
+            VerticalOptions = LayoutOptions.Start,
+            Margin = new Thickness(8)
+        };
+
+        Microsoft.Maui.Controls.Window? previewWindow = null;
+
+        async Task CleanupAsync(WebView2? native)
         {
             try
             {
-                var message = new EmailMessage
+                if (native?.CoreWebView2 is not null)
                 {
-                    Subject = "Completed Form",
-                    Body = "Please find the completed form attached."
-                };
-                message.Attachments.Add(new EmailAttachment(filePath));
-                await Email.Default.ComposeAsync(message);
+                    native.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                        "appassets", string.Empty, CoreWebView2HostResourceAccessKind.Allow);
+                }
             }
-            catch (FeatureNotSupportedException)
+            catch { /* ignore */ }
+
+            try
             {
-                // Email not supported: fall back to share UI
-                await Share.Default.RequestAsync(new ShareFileRequest
+                if (File.Exists(printCopyPath))
+                    File.Delete(printCopyPath);
+            }
+            catch { /* ignore */ }
+
+            try
+            {
+                await MainThread.InvokeOnMainThreadAsync(() =>
                 {
-                    Title = "Share PDF",
-                    File = new ShareFile(filePath)
+                    if (previewWindow is not null)
+                    {
+                        Microsoft.Maui.Controls.Application.Current!.CloseWindow(previewWindow); // <-- use Application to close
+                        previewWindow = null;
+                    }
                 });
+            }
+            catch { /* ignore */ }
+        }
+
+        closeBtn.Clicked += async (_, __) =>
+        {
+            var native = await MainThread.InvokeOnMainThreadAsync<WebView2?>(() =>
+                mauiWebView.Handler?.PlatformView as WebView2);
+            await CleanupAsync(native);
+        };
+
+        var layout = new Microsoft.Maui.Controls.Grid();
+        layout.Add(mauiWebView);
+        layout.Add(closeBtn);
+        page.Content = layout;
+
+        await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            previewWindow = new Microsoft.Maui.Controls.Window(page) { Title = "Print Preview" };
+            Microsoft.Maui.Controls.Application.Current!.OpenWindow(previewWindow);
+        });
+
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            if (mauiWebView.Handler is null)
+            {
+                var tcs = new TaskCompletionSource<bool>();
+                void HandlerChanged(object? s, EventArgs e)
+                {
+                    mauiWebView.HandlerChanged -= HandlerChanged;
+                    tcs.TrySetResult(true);
+                }
+                mauiWebView.HandlerChanged += HandlerChanged;
+                await tcs.Task;
+            }
+
+            var native = mauiWebView.Handler?.PlatformView as WebView2;
+            if (native is null)
+            {
+                Debug.WriteLine("Native WebView2 not available.");
+                await CleanupAsync(null);
+                return;
+            }
+
+            try
+            {
+                if (native.CoreWebView2 is null)
+                    await native.EnsureCoreWebView2Async();
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Email composition failed: {ex.Message}");
+                Debug.WriteLine($"EnsureCoreWebView2Async failed: {ex.Message}");
+                await CleanupAsync(native);
+                return;
             }
-        }
+
+            try
+            {
+                string folder = Path.GetDirectoryName(printCopyPath)!;
+                native.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                    "appassets",
+                    folder,
+                    CoreWebView2HostResourceAccessKind.Allow);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"SetVirtualHostNameToFolderMapping failed: {ex.Message}");
+                await CleanupAsync(native);
+                return;
+            }
+
+            async void OnNavCompleted(WebView2 sender, CoreWebView2NavigationCompletedEventArgs e)
+            {
+                native.NavigationCompleted -= OnNavCompleted;
+
+                if (!e.IsSuccess)
+                {
+                    Debug.WriteLine($"Navigation failed: {e.WebErrorStatus}");
+                    await CleanupAsync(native);
+                    return;
+                }
+
+                try
+                {
+                    native.CoreWebView2?.ShowPrintUI(CoreWebView2PrintDialogKind.Browser);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"ShowPrintUI failed: {ex.Message}");
+                    await CleanupAsync(native);
+                }
+            }
+
+            native.NavigationCompleted += OnNavCompleted;
+
+            string fileName = Path.GetFileName(printCopyPath);
+            string url = $"https://appassets/{Uri.EscapeDataString(fileName)}";
+
+            try
+            {
+                native.Source = new Uri(url);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Navigation error: {ex.Message}");
+                await CleanupAsync(native);
+            }
+        });
     }
 
-    private static bool HasAnyPrinterAsync()
+    private static async Task<string> CreatePrintCopyAsync(string sourcePath)
     {
         try
         {
-
-            int flags = PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS;
-            EnumPrinters(flags, "", 2, IntPtr.Zero, 0, out int cbNeeded, out _);
-            return cbNeeded > 0;
+            var safeName = Path.GetFileNameWithoutExtension(sourcePath);
+            var dest = Path.Combine(FileSystem.CacheDirectory, $"print_{safeName}_{DateTime.UtcNow.Ticks}.pdf");
+            using var input = File.Open(sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            await using var output = File.Create(dest);
+            await input.CopyToAsync(output);
+            return dest;
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            Debug.WriteLine($"CreatePrintCopyAsync failed: {ex.Message}");
+            return sourcePath;
         }
     }
 
-    // Resolve the active page without using obsolete Application.Current.MainPage
-    private static Page? GetActivePage()
+    private static Task OpenInDefaultViewerAsync(string filePath)
     {
-        var window = Application.Current?.Windows?.FirstOrDefault();
-        var page = window?.Page;
-        return GetTopPage(page);
-    }
-
-    private static Page? GetTopPage(Page? root)
-    {
-        if (root == null) return null;
-
-        if (root.Navigation?.ModalStack?.Count > 0)
-            return root.Navigation.ModalStack.Last();
-
-        return root switch
+        try
         {
-            NavigationPage nav => GetTopPage(nav.CurrentPage),
-            TabbedPage tab => GetTopPage(tab.CurrentPage),
-            Shell shell => GetTopPage(shell.CurrentPage),
-            _ => root
-        };
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = filePath,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"OpenInDefaultViewerAsync failed: {ex.Message}");
+        }
+        return Task.CompletedTask;
     }
 }
 #endif

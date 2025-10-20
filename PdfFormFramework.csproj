@@ -11,8 +11,8 @@
 	  <!-- Version information -->
 	  <!-- Define version components individually -->
 	  <VersionMajor>6</VersionMajor>
-	  <VersionMinor>1</VersionMinor>
-	  <VersionBuild>3</VersionBuild>
+	  <VersionMinor>2</VersionMinor>
+	  <VersionBuild>4</VersionBuild>
 	  <!-- Combine into a single version string -->
 	  <VersionPrefix>$(VersionMajor).$(VersionMinor).$(VersionBuild)</VersionPrefix>
 
@@ -24,11 +24,20 @@
 	  <PackageVersion>$(VersionPrefix)</PackageVersion>
   </PropertyGroup>
 
+	<!-- Windows-only: enable WinForms so System.Windows.Forms is available -->
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-windows10.0.19041.0'">
+		<UseWindowsForms>true</UseWindowsForms>
+		<!-- Optional: quiet platform analyzer warnings for Windows-only APIs -->
+		<NoWarn>$(NoWarn);CA1416</NoWarn>
+	</PropertyGroup>
+	
   <ItemGroup>
     <None Remove="Resources\Fonts\CourierPrime-Bold.ttf" />
     <None Remove="Resources\Fonts\CourierPrime-BoldItalic.ttf" />
     <None Remove="Resources\Fonts\CourierPrime-Italic.ttf" />
     <None Remove="Resources\Fonts\CourierPrime-Regular.ttf" />
+    <None Remove="Resources\Images\redbusyios.gif" />
+    <None Remove="Resources\Images\redbusyother.gif" />
   </ItemGroup>
 
   <ItemGroup>
@@ -39,11 +48,24 @@
   </ItemGroup>
 
   <ItemGroup>
+    <MauiImage Include="Resources\Images\redbusyios.gif" />
+    <MauiImage Include="Resources\Images\redbusyother.gif" />
+  </ItemGroup>
+
+  <ItemGroup>
 	<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-	<PackageReference Include="Microsoft.Maui.Controls" Version="9.0.111" />
+	<PackageReference Include="Microsoft.Maui.Controls" Version="9.0.120" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.10" />
     <PackageReference Include="PDFsharp" Version="6.2.2" />
+    <PackageReference Include="SkiaSharp" Version="3.119.1" />
+    <PackageReference Include="SkiaSharp.Views.Maui.Controls" Version="3.119.1" />
     <PackageReference Include="Vitvov.Maui.PDFView" Version="1.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <MauiXaml Update="Controls\ProgressBarOverlay.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
   </ItemGroup>
 
 </Project>

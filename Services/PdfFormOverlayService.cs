@@ -5,11 +5,11 @@ namespace PdfFormFramework.Services;
 
 public static class PdfFormOverlayService
 {
-    public static IEnumerable<View> CreateFieldViews(List<PdfFieldDefinition> fields, double pdfHeight)
+    public static IEnumerable<Microsoft.Maui.Controls.View> CreateFieldViews(List<PdfFieldDefinition> fields, double pdfHeight)
     {
         foreach (var f in fields)
         {
-            View control = f.FieldType switch
+            Microsoft.Maui.Controls.View control = f.FieldType switch
             {
                 PdfFieldType.Text => new Entry
                 {
@@ -30,7 +30,7 @@ public static class PdfFormOverlayService
                     MinimumHeightRequest = 50,
                     Opacity = 0.9
                 },
-                PdfFieldType.CheckBox => new CheckBox
+                PdfFieldType.CheckBox => new Microsoft.Maui.Controls.CheckBox
                 {
                     IsChecked = f.Value.Equals("Yes", StringComparison.OrdinalIgnoreCase),
                     Color = Colors.Blue,
@@ -47,7 +47,7 @@ public static class PdfFormOverlayService
                     MinimumHeightRequest = 30,
                     Opacity = 0.9
                 },
-                _ => new Label
+                _ => new Microsoft.Maui.Controls.Label
                 {
                     Text = f.Name,
                     BackgroundColor = Colors.Yellow.WithAlpha(0.5f),
@@ -72,7 +72,7 @@ public static class PdfFormOverlayService
                 case Editor e:
                     e.TextChanged += (_, ev) => f.OnValueChanged?.Invoke(ev.NewTextValue);
                     break;
-                case CheckBox c:
+                case Microsoft.Maui.Controls.CheckBox c:
                     c.CheckedChanged += (_, ev) => f.OnValueChanged?.Invoke(ev.Value ? "Yes" : "Off");
                     break;
                 case Picker p:

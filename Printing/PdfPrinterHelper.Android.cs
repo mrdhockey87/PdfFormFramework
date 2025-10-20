@@ -1,81 +1,80 @@
 ﻿#if ANDROID
 using Android.Content;
-using Android.Print;
 using Android.OS;
-using Microsoft.Maui.ApplicationModel.DataTransfer;
+using Android.Print;
+using Microsoft.Maui.ApplicationModel;
+using System.IO;
+using SIO = System.IO;      // alias .NET IO
+using JIO = Java.IO;        // alias Java IO
 
 namespace PdfFormFramework.Printing;
 
 public partial class PdfPrinterHelper
 {
-    static public partial async Task PlatformPrintOrEmailAsync(string filePath)
+    public static partial async Task PlatformPrintOrEmailAsync(string filePath)
     {
-        try
-        {
-            var context = Platform.CurrentActivity ?? Platform.AppContext;
-            var printManager = (PrintManager?)context.GetSystemService(Context.PrintService) ?? 
-                              throw new InvalidOperationException("Printing not supported on this device.");
+        if (string.IsNullOrWhiteSpace(filePath) || !SIO.File.Exists(filePath))
+            return;
 
-            // Create a PrintDocumentAdapter for an existing PDF file
-            var printAdapter = new PrintFileDocumentAdapter(context, filePath);
-
-            // Launch Android’s native print dialog
-            printManager.Print("Print PDF", printAdapter, null);
-        }
-        catch (Exception ex)
+        await MainThread.InvokeOnMainThreadAsync(() =>
         {
-            Console.WriteLine($"Android printing failed: {ex.Message}");
-            // Fallback to sharing (email option)
-            await Share.RequestAsync(new ShareFileRequest
-            {
-                Title = "Send PDF via email",
-                File = new ShareFile(filePath)
-            });
-        }
+            var activity = Platform.CurrentActivity;
+            if (activity is null) return;
+
+            var printManager = (PrintManager)activity.GetSystemService(Context.PrintService)!;
+            var adapter = new PdfFilePrintDocumentAdapter(activity, filePath);
+            var jobName = SIO.Path.GetFileName(filePath);
+
+            printManager.Print(jobName, adapter, null);
+        });
     }
 
-    private class PrintFileDocumentAdapter : PrintDocumentAdapter
+    private sealed class PdfFilePrintDocumentAdapter : PrintDocumentAdapter
     {
         private readonly Context _context;
         private readonly string _filePath;
 
-        public PrintFileDocumentAdapter(Context context, string filePath)
+        public PdfFilePrintDocumentAdapter(Context context, string filePath)
         {
             _context = context;
             _filePath = filePath;
         }
 
         public override void OnLayout(PrintAttributes? oldAttributes, PrintAttributes? newAttributes,
-            CancellationSignal? cancellationSignal, LayoutResultCallback? callback, Bundle? extras)
+                                      CancellationSignal? cancellationSignal, LayoutResultCallback callback, Bundle? extras)
         {
-            var info = new PrintDocumentInfo.Builder(System.IO.Path.GetFileName(_filePath))
+            if (cancellationSignal?.IsCanceled == true)
+            {
+                callback.OnLayoutCancelled();
+                return;
+            }
+
+            var info = new PrintDocumentInfo.Builder(SIO.Path.GetFileName(_filePath))
                 .SetContentType(PrintContentType.Document)
+                .SetPageCount(PrintDocumentInfo.PageCountUnknown)
                 .Build();
 
-            callback?.OnLayoutFinished(info, true);
+            callback.OnLayoutFinished(info, true);
         }
 
-        public override void OnWrite(PageRange[]? pages, ParcelFileDescriptor? destination,
-            CancellationSignal? cancellationSignal, WriteResultCallback? callback)
+        public override void OnWrite(PageRange[]? pages, ParcelFileDescriptor destination,
+                                     CancellationSignal? cancellationSignal, WriteResultCallback callback)
         {
             try
             {
-                // Simply copy the existing PDF bytes into Android’s destination stream
-                using var input = System.IO.File.OpenRead(_filePath);
-                using var output = new Java.IO.FileOutputStream(destination!.FileDescriptor);
+                using var input = new JIO.FileInputStream(_filePath);                  // Java.IO in
+                using var output = new JIO.FileOutputStream(destination.FileDescriptor); // Java.IO out
+                input.Channel.TransferTo(0, input.Channel.Size(), output.Channel);
 
-                var buffer = new byte[8192];
-                int bytesRead;
-                while ((bytesRead = input.Read(buffer, 0, buffer.Length)) > 0)
-                    output.Write(buffer, 0, bytesRead);
-
-                output.Flush();
-                callback?.OnWriteFinished(new[] { PageRange.AllPages ?? new PageRange(0, int.MaxValue) });
+                callback.OnWriteFinished(new[] { PageRange.AllPages });
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
-                Android.Util.Log.Error("PdfPrinter", $"Error printing PDF: {ex}");
-                callback?.OnWriteFailed(ex.Message);
+                callback.OnWriteFailed(ex.Message);
+            }
+            finally
+            {
+                try { destination?.Close(); } catch { /* ignore */ }
             }
         }
     }

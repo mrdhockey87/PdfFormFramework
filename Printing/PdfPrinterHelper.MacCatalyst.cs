@@ -1,43 +1,33 @@
 ﻿#if MACCATALYST
-using AppKit;
 using Foundation;
-using Microsoft.Maui.ApplicationModel.DataTransfer;
+using Microsoft.Maui.ApplicationModel;
+using System.IO;
 using UIKit;
 
 namespace PdfFormFramework.Printing;
-   
+
 public partial class PdfPrinterHelper
 {
-    static public partial async Task PlatformPrintOrEmailAsync(string filePath)
+    public static partial async Task PlatformPrintOrEmailAsync(string filePath)
     {
-        try
-        {
-            var pdfData = NSData.FromFile(filePath);
-            var printController = UIPrintInteractionController.SharedPrintController;
-            if (printController == null)
-                throw new InvalidOperationException("Printing not supported on this device.");
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            return;
 
-            printController.PrintingItem = pdfData; // Pass PDF directly
-            printController.ShowsNumberOfCopies = true;
-            printController.ShowsPaperSelectionForLoadedPapers = true;
-
-            // Present print dialog modally (works on both iPad & MacCatalyst)
-            printController.Present(true, (controller, completed, error) =>
-            {
-                if (error != null)
-                    Console.WriteLine($"Print error: {error.LocalizedDescription}");
-            });
-        }
-        catch (Exception ex)
+        await MainThread.InvokeOnMainThreadAsync(() =>
         {
-            Console.WriteLine($"Printing failed: {ex.Message}");
-            // Fallback to sharing (email option)
-            await Share.RequestAsync(new ShareFileRequest
-            {
-                Title = "Send PDF via email",
-                File = new ShareFile(filePath)
-            });
-        }
+            if (!UIPrintInteractionController.PrintingAvailable)
+                return;
+
+            var ctrl = UIPrintInteractionController.SharedPrintController;
+
+            var info = UIPrintInfo.PrintInfo;
+            info.OutputType = UIPrintInfoOutputType.General;
+            info.JobName = Path.GetFileName(filePath);
+            ctrl.PrintInfo = info;
+            ctrl.PrintingItem = NSUrl.FromFilename(filePath);
+
+            ctrl.Present(true, null);
+        });
     }
 }
 #endif

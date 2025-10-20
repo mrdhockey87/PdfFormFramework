@@ -26,12 +26,13 @@ namespace PdfFormViewerFramework
             // Fallback to AssemblyVersion
             var version = assembly.GetName().Version?.ToString();
 
-            return version ?? "4.3.5";
+            return version ?? "6.2.4";
         }
     }
 }
 /*Version history:
  *
+ *: v6.2.4: Got the print function to work properly on all platforms still need to test it on mac,iOS & Android though. mdail 10-21-25
  *: v6.1.3: I finally got the framework to print the pdf form properly on Windows, I still need to test on other platforms mdail 10-17-25
  *: v5.0.2: I got the form to display properly so the basic framework is working. The save function is working however I need to give it a way to change the 
  *                   file name. The print as if I want to share the document, I need to fix that so it opens the print function of the system it is on. mdail 10-16-25
