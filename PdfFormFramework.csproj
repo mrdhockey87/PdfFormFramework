@@ -12,7 +12,7 @@
 	  <!-- Define version components individually -->
 	  <VersionMajor>6</VersionMajor>
 	  <VersionMinor>2</VersionMinor>
-	  <VersionBuild>4</VersionBuild>
+	  <VersionBuild>5</VersionBuild>
 	  <!-- Combine into a single version string -->
 	  <VersionPrefix>$(VersionMajor).$(VersionMinor).$(VersionBuild)</VersionPrefix>
 

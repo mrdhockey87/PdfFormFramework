@@ -26,12 +26,14 @@ namespace PdfFormViewerFramework
             // Fallback to AssemblyVersion
             var version = assembly.GetName().Version?.ToString();
 
-            return version ?? "6.2.4";
+            return version ?? "6.2.5";
         }
     }
 }
 /*Version history:
  *
+ *: v6.2.5: Added a way to only email form, and figured out to open the pdf without filling it in I only need to set the data model to null.
+ *          I need to look at the email only option though as it only askes for a subject right now. mdail 10-22-25
  *: v6.2.4: Got the print function to work properly on all platforms still need to test it on mac,iOS & Android though. mdail 10-21-25
  *: v6.1.3: I finally got the framework to print the pdf form properly on Windows, I still need to test on other platforms mdail 10-17-25
  *: v5.0.2: I got the form to display properly so the basic framework is working. The save function is working however I need to give it a way to change the 
