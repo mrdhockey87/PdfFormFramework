@@ -121,19 +121,20 @@ namespace PdfFormFramework.Printing
                     BodyFormat = EmailBodyFormat.PlainText
                 };
 
-                if (to != null)
+                if (to != null && message.To != null)
                     foreach (var addr in to.Where(a => !string.IsNullOrWhiteSpace(a)))
                         message.To.Add(addr);
 
-                if (cc != null)
+                if (cc != null && message.Cc != null)
                     foreach (var addr in cc.Where(a => !string.IsNullOrWhiteSpace(a)))
                         message.Cc.Add(addr);
 
-                if (bcc != null)
+                if (bcc != null && message.Bcc != null)
                     foreach (var addr in bcc.Where(a => !string.IsNullOrWhiteSpace(a)))
                         message.Bcc.Add(addr);
 
-                message.Attachments.Add(new EmailAttachment(filePath));
+                if (message.Attachments != null)
+                    message.Attachments.Add(new EmailAttachment(filePath));
 
                 await Email.Default.ComposeAsync(message);
                 return true;

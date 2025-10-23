@@ -109,7 +109,7 @@ public class PdfFieldService
                     }
                 }
                 // If it has child fields, process them recursively
-                if (hasChildFields)
+                if (hasChildFields && field.Fields != null)
                 {
                     SafeProcessFields(field.Fields, results);
                     continue;
@@ -526,7 +526,7 @@ public class PdfFieldService
                 }
 
                 // Process child fields if any
-                if (hasChildFields)
+                if (hasChildFields && field.Fields != null)
                 {
                     ApplyValuesToFields(field.Fields, values);
                     continue;

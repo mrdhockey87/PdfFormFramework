@@ -1,0 +1,17 @@
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/bin/Debug/net9.0-windows10.0.19041.0/PdfFormFramework.deps.json
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/bin/Debug/net9.0-windows10.0.19041.0/PdfFormFramework.dll
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/bin/Debug/net9.0-windows10.0.19041.0/PdfFormFramework.pdb
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/bin/Debug/net9.0-windows10.0.19041.0/Microsoft.Web.WebView2.Core.dll
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/bin/Debug/net9.0-windows10.0.19041.0/Microsoft.Web.WebView2.Core.Projection.dll
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/obj/Debug/net9.0-windows10.0.19041.0/PdfFormFramework.csproj.AssemblyReference.cache
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/obj/Debug/net9.0-windows10.0.19041.0/PdfFormFramework.GeneratedMSBuildEditorConfig.editorconfig
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/obj/Debug/net9.0-windows10.0.19041.0/PdfFormFramework.AssemblyInfoInputs.cache
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/obj/Debug/net9.0-windows10.0.19041.0/PdfFormFramework.AssemblyInfo.cs
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/obj/Debug/net9.0-windows10.0.19041.0/PdfFormFramework.csproj.CoreCompileInputs.cache
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/obj/Debug/net9.0-windows10.0.19041.0/PdfFormFramework.sourcelink.json
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/obj/Debug/net9.0-windows10.0.19041.0/XamlC.stamp
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/obj/Debug/net9.0-windows10.0.19041.0/PdfFormF.62DF9CC0.Up2Date
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/obj/Debug/net9.0-windows10.0.19041.0/PdfFormFramework.dll
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/obj/Debug/net9.0-windows10.0.19041.0/refint/PdfFormFramework.dll
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/obj/Debug/net9.0-windows10.0.19041.0/PdfFormFramework.pdb
+/Volumes/1TB/PdfFormFramework/PdfFormFramework/obj/Debug/net9.0-windows10.0.19041.0/ref/PdfFormFramework.dll

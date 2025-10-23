@@ -6,13 +6,14 @@
     <SingleProject>true</SingleProject>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
 	  <!-- Generate a C# file with version information -->
 	  <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
 	  <!-- Version information -->
 	  <!-- Define version components individually -->
 	  <VersionMajor>6</VersionMajor>
 	  <VersionMinor>2</VersionMinor>
-	  <VersionBuild>5</VersionBuild>
+	  <VersionBuild>6</VersionBuild>
 	  <!-- Combine into a single version string -->
 	  <VersionPrefix>$(VersionMajor).$(VersionMinor).$(VersionBuild)</VersionPrefix>
 

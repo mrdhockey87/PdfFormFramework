@@ -13,7 +13,7 @@ public class PdfInteractiveFormView<TModel> : ContentView where TModel : class, 
     readonly Grid _mainGrid = new();
 
     // Use a PdfView for displaying the PDF
-    private PdfView _pdfView;
+    private PdfView? _pdfView;
 
     private string? _tempPdf;
     private string? _filledPdfPath;  // path returned by the filling service

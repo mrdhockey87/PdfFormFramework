@@ -120,6 +120,8 @@ public partial class PdfPrinterHelper
 
     private static void OnPrintPage(object? sender, PrintPageEventArgs e)
     {
+        if (e.Graphics is null) return;
+        
         var img = s_pages[s_pageIndex];
 
         // Let GDI scale the bitmap to fit the printable area. Keeps units consistent.
@@ -247,9 +249,9 @@ public partial class PdfPrinterHelper
             {
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
-                    if (previewWindow is not null)
+                    if (previewWindow is not null && Microsoft.Maui.Controls.Application.Current is not null)
                     {
-                        Microsoft.Maui.Controls.Application.Current!.CloseWindow(previewWindow); // <-- use Application to close
+                        Microsoft.Maui.Controls.Application.Current.CloseWindow(previewWindow); // <-- use Application to close
                         previewWindow = null;
                     }
                 });
@@ -272,7 +274,7 @@ public partial class PdfPrinterHelper
         await MainThread.InvokeOnMainThreadAsync(() =>
         {
             previewWindow = new Microsoft.Maui.Controls.Window(page) { Title = "Print Preview" };
-            Microsoft.Maui.Controls.Application.Current!.OpenWindow(previewWindow);
+            Microsoft.Maui.Controls.Application.Current?.OpenWindow(previewWindow);
         });
 
         await MainThread.InvokeOnMainThreadAsync(async () =>
