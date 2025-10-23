@@ -1,3 +1,5 @@
 bin/
-obj/._.gitignore
+obj/
 ._.gitignore
+.vs/
+.github/copilot-instructions.md
