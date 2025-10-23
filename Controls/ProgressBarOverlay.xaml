@@ -8,7 +8,7 @@
           Opacity="0.5"
           VerticalOptions="FillAndExpand"
           HorizontalOptions="FillAndExpand">
-        <Image Source="{OnPlatform Android='redbusyother.gif', WinUI='redbusyother.gif', iOS='redbusyios.gif', MacCatalyst='redbusyios.gif'}"
+        <Image Source="{OnPlatform Android='frameworkredbusyother.gif', WinUI='frameworkredbusyother.gif', iOS='frameworkredbusyios.gif', MacCatalyst='frameworkredbusyios.gif'}"
                Aspect="AspectFit"
                x:Name="loadinggif"
                HeightRequest="{OnPlatform Android='200', WinUI='200', iOS='100', MacCatalyst='100'}"

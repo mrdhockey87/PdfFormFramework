@@ -37,8 +37,6 @@
     <None Remove="Resources\Fonts\CourierPrime-BoldItalic.ttf" />
     <None Remove="Resources\Fonts\CourierPrime-Italic.ttf" />
     <None Remove="Resources\Fonts\CourierPrime-Regular.ttf" />
-    <None Remove="Resources\Images\redbusyios.gif" />
-    <None Remove="Resources\Images\redbusyother.gif" />
   </ItemGroup>
 
   <ItemGroup>
@@ -49,8 +47,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <MauiImage Include="Resources\Images\redbusyios.gif" />
-    <MauiImage Include="Resources\Images\redbusyother.gif" />
+    <MauiImage Include="Resources\Images\frameworkredbusyios.gif" />
+    <MauiImage Include="Resources\Images\frameworkredbusyother.gif" />
   </ItemGroup>
 
   <ItemGroup>
