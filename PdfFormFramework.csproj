@@ -11,9 +11,9 @@
 	  <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
 	  <!-- Version information -->
 	  <!-- Define version components individually -->
-	  <VersionMajor>6</VersionMajor>
-	  <VersionMinor>2</VersionMinor>
-	  <VersionBuild>6</VersionBuild>
+	  <VersionMajor>7</VersionMajor>
+	  <VersionMinor>3</VersionMinor>
+	  <VersionBuild>8</VersionBuild>
 	  <!-- Combine into a single version string -->
 	  <VersionPrefix>$(VersionMajor).$(VersionMinor).$(VersionBuild)</VersionPrefix>
 

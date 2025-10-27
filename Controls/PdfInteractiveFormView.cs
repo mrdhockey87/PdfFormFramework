@@ -60,23 +60,17 @@ public class PdfInteractiveFormView<TModel> : ContentView where TModel : class, 
             _tempPdf = PdfCompressionService.DecompressGzToTempPdf(gzPath);
             Debug.WriteLine($"Decompressed PDF saved to: {_tempPdf}");
 
-            // Initialize the form filling service
-            _formFillingService = new PdfFormFillingService(_tempPdf);
-
-            // Set model or create a new one
-            Model = dataModel ?? new TModel();
-
-            // Fill the PDF with model data before displaying
+            // Only fill when a model is provided
+            Model = dataModel;
             if (Model != null)
             {
+                _formFillingService = new PdfFormFillingService(_tempPdf);
                 await FillFormWithModelAsync(Model);
-                return; // FillFormWithModelAsync already handles displaying the PDF
+                return; // FillFormWithModelAsync handles displaying
             }
 
-            // Set the URI to load the filled PDF
-            string pdfPath = _formFillingService.GetPdfPath();
-            Debug.WriteLine($"Loading PDF from path: {pdfPath}");
-
+            // No model => display the decompressed PDF as-is
+            var pdfPath = _tempPdf!;
             if (File.Exists(pdfPath))
             {
                 await RecreateAndLoadPdfView(pdfPath);
@@ -86,7 +80,7 @@ public class PdfInteractiveFormView<TModel> : ContentView where TModel : class, 
                 Debug.WriteLine($"ERROR: PDF file does not exist at path: {pdfPath}");
             }
 
-            Debug.WriteLine("PDF loaded and form filled");
+            Debug.WriteLine("PDF loaded");
         }
         catch (Exception ex)
         {
@@ -360,5 +354,96 @@ public class PdfInteractiveFormView<TModel> : ContentView where TModel : class, 
 
         // Clean up event handlers
         Unloaded -= ContentView_Unloaded;
+    }
+
+    // Accept a path from the app (.pdf.gz or .pdf) and optionally a model.
+    // If model is null, the PDF is just displayed.
+    public async Task LoadFromAppAsync(string path, TModel? dataModel = null)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            Debug.WriteLine("LoadFromAppAsync: empty path");
+            return;
+        }
+
+        // If not rooted, try to resolve from known locations or app package
+        string? resolved = Path.IsPathRooted(path) ? path : await ResolvePathAsync(path);
+        if (string.IsNullOrWhiteSpace(resolved) || !File.Exists(resolved))
+        {
+            Debug.WriteLine($"LoadFromAppAsync: could not resolve '{path}' to a file on disk.");
+            return;
+        }
+
+        var ext = Path.GetExtension(resolved);
+        if (ext.Equals(".gz", StringComparison.OrdinalIgnoreCase))
+            await LoadPdfGz(resolved, dataModel);
+        else
+            await LoadPdf(resolved);
+    }
+
+    // Resolve a file name to a real, readable path:
+    // - AppData, Cache, BaseDirectory, Resources/Raw
+    // - app package (copies to Cache)
+    private static async Task<string?> ResolvePathAsync(string fileName)
+    {
+        try
+        {
+            // Try common locations first
+            var candidates = new[]
+            {
+                fileName, // current directory (rarely useful on mobile)
+                Path.Combine(FileSystem.AppDataDirectory, fileName),
+                Path.Combine(FileSystem.CacheDirectory, fileName),
+                Path.Combine(AppContext.BaseDirectory, fileName),
+                Path.Combine("Resources", "Raw", fileName),
+            };
+
+            foreach (var p in candidates)
+            {
+                try
+                {
+                    if (File.Exists(p))
+                        return p;
+                }
+                catch { /* ignore */ }
+            }
+
+            // Try app package; if found, copy to Cache and return that path
+            using var pkg = await FileSystem.OpenAppPackageFileAsync(fileName);
+            var dest = Path.Combine(FileSystem.CacheDirectory, fileName);
+            using (var outStream = File.Create(dest))
+                await pkg.CopyToAsync(outStream);
+            return dest;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // Load a plain PDF file directly (no .gz, no filling)
+    public async Task LoadPdf(string pdfPath)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath))
+            {
+                Debug.WriteLine("LoadPdf: invalid path");
+                return;
+            }
+
+            _sourceGzPath = null;
+            _tempPdf = pdfPath;
+            _filledPdfPath = null;
+            _viewPdfPath = null;
+            _formFillingService = null;
+            Model = null;
+
+            await RecreateAndLoadPdfView(pdfPath);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"LoadPdf error: {ex.Message}");
+        }
     }
 }

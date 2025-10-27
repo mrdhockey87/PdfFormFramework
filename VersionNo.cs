@@ -26,12 +26,16 @@ namespace PdfFormViewerFramework
             // Fallback to AssemblyVersion
             var version = assembly.GetName().Version?.ToString();
 
-            return version ?? "6.2.5";
+            return version ?? "7.3.8";
         }
     }
 }
 /*Version history:
  *
+ *: v7.3.8: Modify the framework to require a pdf file name or path to a pdf file the is either compressed to a gz 
+ *          or uncompressed pdf file. It requires the file name only or a full path to the file as long as the file is
+ *          located in the app package or local storage of the app or the App Context Base Directory or local directory. 
+ *          It also take a Model with data to be used to fill in form data or no model to just open the form. mdail 10-24-25
  *: v6.2.7: Started to add the framework to the Award quick app. mdail 10-23-25
  *: v6.2.6: Fix problems that Mac found that the Windows system did not. mdail 10-23-25
  *: v6.2.5: Added a way to only email form, and figured out to open the pdf without filling it in I only need to set the data model to null.
