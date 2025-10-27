@@ -32,6 +32,7 @@ namespace PdfFormViewerFramework
 }
 /*Version history:
  *
+ *: v6.2.7: Started to add the framework to the Award quick app. mdail 10-23-25
  *: v6.2.6: Fix problems that Mac found that the Windows system did not. mdail 10-23-25
  *: v6.2.5: Added a way to only email form, and figured out to open the pdf without filling it in I only need to set the data model to null.
  *          I need to look at the email only option though as it only askes for a subject right now. mdail 10-22-25
