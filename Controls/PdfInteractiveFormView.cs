@@ -36,7 +36,7 @@ public class PdfInteractiveFormView<TModel> : ContentView where TModel : class, 
         // Initialize PDF view
         _pdfView = new PdfView
         {
-            BackgroundColor = Colors.White
+            BackgroundColor = Microsoft.Maui.Graphics.Color.FromArgb("FFFFFFFF")
         };
 
         // Set up main grid
@@ -149,7 +149,7 @@ public class PdfInteractiveFormView<TModel> : ContentView where TModel : class, 
                 GC.Collect();
 
                 // Create new PDF viewer
-                _pdfView = new PdfView { BackgroundColor = Colors.White };
+                _pdfView = new PdfView { BackgroundColor = Microsoft.Maui.Graphics.Color.FromArgb("FFFFFFFF") };
                 _mainGrid.Add(_pdfView);
 
                 // Load the PDF using the unique path to avoid caching old content
@@ -391,7 +391,6 @@ public class PdfInteractiveFormView<TModel> : ContentView where TModel : class, 
             // Try common locations first
             var candidates = new[]
             {
-                fileName, // current directory (rarely useful on mobile)
                 Path.Combine(FileSystem.AppDataDirectory, fileName),
                 Path.Combine(FileSystem.CacheDirectory, fileName),
                 Path.Combine(AppContext.BaseDirectory, fileName),

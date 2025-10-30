@@ -32,6 +32,8 @@ namespace PdfFormViewerFramework
 }
 /*Version history:
  *
+ *: v7.3.9: Edit the white color to make them use Hex numbers instead of named colors to avoid problems on 
+ *          some platforms * dark mode  mdail 10-30-25
  *: v7.3.8: Modify the framework to require a pdf file name or path to a pdf file the is either compressed to a gz 
  *          or uncompressed pdf file. It requires the file name only or a full path to the file as long as the file is
  *          located in the app package or local storage of the app or the App Context Base Directory or local directory. 
