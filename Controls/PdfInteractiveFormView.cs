@@ -37,8 +37,18 @@ public class PdfInteractiveFormView<TModel> : ContentView where TModel : class, 
         _pdfView = new PdfView
         {
             BackgroundColor = Microsoft.Maui.Graphics.Color.FromArgb("FFFFFFFF")
-        };
 
+        };
+        // Access the PageAppearance property
+        if (_pdfView.PageAppearance == null)
+        {
+            _pdfView.PageAppearance = new PageAppearance();
+        }
+
+        // Set ShadowEnabled to false
+        _pdfView.PageAppearance.ShadowEnabled = false;
+        _pdfView.PageAppearance.Margin = new Thickness(-10,-10);
+        _pdfView.PageAppearance.Crop = new Thickness(0);
         // Set up main grid
         _mainGrid.Add(_pdfView, 0, 0);
 
