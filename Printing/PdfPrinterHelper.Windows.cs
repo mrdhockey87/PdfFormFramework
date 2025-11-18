@@ -9,56 +9,33 @@ using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 
-// WinForms + GDI
-using System.Drawing;
-using System.Drawing.Printing;
-using System.Windows.Forms;
-using GdiImage = System.Drawing.Image; // disambiguate Image
-
 // SkiaSharp placeholder renderer (swap with your PDF renderer)
 using SkiaSharp;
 using System.Runtime.InteropServices.WindowsRuntime;
-using Windows.Data.Pdf;
-using Windows.Storage.Streams;
-using Windows.Graphics.Imaging;
+using Windows.Foundation;
     
 namespace PdfFormFramework.Printing;
 
 public partial class PdfPrinterHelper
 {
-    // In-memory pages for GDI printing
-    private static readonly List<GdiImage> s_pages = new();
-    private static int s_pageIndex;
-
-    // Entry: Prefer WinForms/GDI pipeline; fallback to WebView2; then default viewer
+    // Entry: Prefer WebView2 print pipeline (works reliably in MAUI/WinUI); fallback to default viewer
     public static partial async Task PlatformPrintOrEmailAsync(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
             return;
 
-        // 1) Preferred: WinForms printer dialog + GDI print (no Acrobat/PrintManager)
+        // 1) Preferred: use WebView2 printing (native Edge viewer print UI)
         try
         {
-            var ok = await PrintWithWinFormsAsync(filePath);
+            var ok = await PrintWithWebView2Async(filePath);
             if (ok) return;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"WinForms/GDI print failed: {ex.Message}");
+            Debug.WriteLine($"WebView2 print failed: {ex.Message}");
         }
 
-        // 2) Fallback: system print dialog via WebView2 (Edge PDF viewer)
-        try
-        {
-            await ShowSystemPrintDialogAsync(filePath);
-            return;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"WebView2 print fallback failed: {ex.Message}");
-        }
-
-        // 3) Last resort: open in default viewer
+        // 2) Last resort: open in default viewer
         try
         {
             await OpenInDefaultViewerAsync(filePath);
@@ -66,143 +43,19 @@ public partial class PdfPrinterHelper
         catch { /* ignore */ }
     }
 
-    // WinForms print dialog + GDI print pipeline
-    private static async Task<bool> PrintWithWinFormsAsync(string filePath)
+    // Use the existing WebView2-based preview to show the system print UI
+    private static async Task<bool> PrintWithWebView2Async(string filePath)
     {
-        s_pages.Clear();
-        var rendered = await RenderPdfToBitmapsAsync(filePath);
-        s_pages.AddRange(rendered);
-        if (s_pages.Count == 0) return false;
-
-        bool printed = false;
-
-        await MainThread.InvokeOnMainThreadAsync(() =>
-        {
-            using var dlg = new PrintDialog
-            {
-                UseEXDialog = true,
-                AllowSomePages = false,
-                AllowSelection = false,
-                ShowNetwork = true
-            };
-
-            using var doc = new PrintDocument();
-            doc.DocumentName = Path.GetFileName(filePath);
-
-            // Fill the whole page: no margins, origin at physical page
-            doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
-            doc.OriginAtMargins = false;
-
-            doc.PrintPage += OnPrintPage;
-
-            dlg.Document = doc;
-            if (dlg.ShowDialog() == DialogResult.OK)
-            {
-                s_pageIndex = 0;
-                try
-                {
-                    doc.Print();
-                    printed = true;
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Print failed: {ex.Message}");
-                    printed = false;
-                }
-            }
-        });
-
-        foreach (var img in s_pages) img.Dispose();
-        s_pages.Clear();
-
-        return printed;
-    }
-
-    private static void OnPrintPage(object? sender, PrintPageEventArgs e)
-    {
-        if (e.Graphics is null) return;
-        
-        var img = s_pages[s_pageIndex];
-
-        // Let GDI scale the bitmap to fit the printable area. Keeps units consistent.
-        e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-        e.Graphics.PixelOffsetMode   = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
-        e.Graphics.SmoothingMode     = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-
-        e.Graphics.DrawImage(img, e.MarginBounds);
-
-        s_pageIndex++;
-        e.HasMorePages = s_pageIndex < s_pages.Count;
-    }
-
-    // Render PDF pages to GDI bitmaps using Windows.Data.Pdf (no Pdfium required)
-    private static async Task<List<GdiImage>> RenderPdfToBitmapsAsync(string filePath)
-    {
-        var outputs = new List<GdiImage>();
-
         try
         {
-            using var fs = File.OpenRead(filePath);
-            IRandomAccessStream ras = fs.AsRandomAccessStream();
-
-            PdfDocument pdf = await PdfDocument.LoadFromStreamAsync(ras);
-            uint pageCount = pdf.PageCount;
-            const double targetDpi = 300.0; // adjust as desired
-
-            for (uint i = 0; i < pageCount; i++)
-            {
-                using PdfPage page = pdf.GetPage(i);
-
-                // Convert page size from DIPs (1/96") to pixels at target DPI
-                var sizeDip = page.Size;
-                uint pxW = (uint)Math.Max(1, Math.Round(sizeDip.Width  * (targetDpi / 96.0)));
-                uint pxH = (uint)Math.Max(1, Math.Round(sizeDip.Height * (targetDpi / 96.0)));
-
-                using var pageStream = new InMemoryRandomAccessStream();
-                var opts = new PdfPageRenderOptions
-                {
-                    DestinationWidth  = pxW,
-                    DestinationHeight = pxH,
-                    BackgroundColor   = Windows.UI.Color.FromArgb(255, 255, 255, 255) // white bg
-                };
-                await page.RenderToStreamAsync(pageStream, opts);
-                pageStream.Seek(0);
-
-                // Decode frame and re-encode as PNG
-                var decoder = await BitmapDecoder.CreateAsync(pageStream);
-                var softBmp = await decoder.GetSoftwareBitmapAsync();
-                var converted = SoftwareBitmap.Convert(
-                    softBmp,
-                    BitmapPixelFormat.Bgra8,
-                    BitmapAlphaMode.Premultiplied);
-
-                using var pngStream = new InMemoryRandomAccessStream();
-                var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, pngStream);
-                encoder.SetSoftwareBitmap(converted);
-                await encoder.FlushAsync();
-                pngStream.Seek(0);
-
-                // GDI image from managed stream; clone to detach from stream
-                using var managed = pngStream.AsStreamForRead();
-                using var ms = new MemoryStream();
-                await managed.CopyToAsync(ms);
-                ms.Position = 0;
-
-                using var img = GdiImage.FromStream(ms);
-                var clone = new Bitmap(img);
-                clone.SetResolution((float)targetDpi, (float)targetDpi); // helps scaling
-                outputs.Add(clone);
-
-                // Optional: write first page for debugging
-                // if (i == 0) clone.Save(Path.Combine(FileSystem.CacheDirectory, "rendered_page1.png"));
-            }
+            await ShowSystemPrintDialogAsync(filePath);
+            return true;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"RenderPdfToBitmapsAsync (Windows.Data.Pdf) failed: {ex.Message}");
+            Debug.WriteLine($"PrintWithWebView2Async failed: {ex.Message}");
+            return false;
         }
-
-        return outputs;
     }
 
     // System print dialog via WebView2 (Edge PDF viewer)

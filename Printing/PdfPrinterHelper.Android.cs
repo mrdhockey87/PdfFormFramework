@@ -41,11 +41,11 @@ public partial class PdfPrinterHelper
         }
 
         public override void OnLayout(PrintAttributes? oldAttributes, PrintAttributes? newAttributes,
-                                      CancellationSignal? cancellationSignal, LayoutResultCallback callback, Bundle? extras)
+            CancellationSignal? cancellationSignal, PrintDocumentAdapter.LayoutResultCallback? callback, Bundle? extras)
         {
             if (cancellationSignal?.IsCanceled == true)
             {
-                callback.OnLayoutCancelled();
+                callback?.OnLayoutCancelled();
                 return;
             }
 
@@ -54,23 +54,39 @@ public partial class PdfPrinterHelper
                 .SetPageCount(PrintDocumentInfo.PageCountUnknown)
                 .Build();
 
-            callback.OnLayoutFinished(info, true);
+            callback?.OnLayoutFinished(info, true);
         }
 
-        public override void OnWrite(PageRange[]? pages, ParcelFileDescriptor destination,
-                                     CancellationSignal? cancellationSignal, WriteResultCallback callback)
+        public override void OnWrite(PageRange[]? pages, ParcelFileDescriptor? destination,
+                                     CancellationSignal? cancellationSignal, WriteResultCallback? callback)
         {
             try
             {
+                if (destination?.FileDescriptor == null)
+                {
+                    callback?.OnWriteFailed("Destination file descriptor is null.");
+                    return;
+                }
+
                 using var input = new JIO.FileInputStream(_filePath);                  // Java.IO in
                 using var output = new JIO.FileOutputStream(destination.FileDescriptor); // Java.IO out
-                input.Channel.TransferTo(0, input.Channel.Size(), output.Channel);
 
-                callback.OnWriteFinished(new[] { PageRange.AllPages });
-            }
+                var inputChannel = input.Channel;
+                var outputChannel = output.Channel;
+
+                if (inputChannel is null || outputChannel is null)
+                {
+                    callback?.OnWriteFailed("Unable to access file channels for printing.");
+                    return;
+                }
+
+                _ = inputChannel.TransferTo(0, inputChannel.Size(), outputChannel);
+
+                callback?.OnWriteFinished(pages: [PageRange.AllPages!]);
+            }   
             catch (System.Exception ex)
             {
-                callback.OnWriteFailed(ex.Message);
+                callback?.OnWriteFailed(ex.Message);
             }
             finally
             {

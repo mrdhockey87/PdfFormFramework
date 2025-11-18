@@ -83,7 +83,7 @@ namespace PdfFormFramework.Printing
                 if (recipients.Count == 0 || recipients.Any(r => !IsValidEmail(r)))
                 {
                     await MainThread.InvokeOnMainThreadAsync(() =>
-                        page.DisplayAlert("Invalid email", "Please enter a valid email address.", "OK"));
+                        page.DisplayAlertAsync("Invalid email", "Please enter a valid email address.", "OK"));
                     return false;
                 }
 

@@ -32,6 +32,8 @@ namespace PdfFormViewerFramework
 }
 /*Version history:
  *
+ *: v8.4.11: Had to change the print selection for windows for .net 10 as the old way no longer works. mdail 11-28-25
+ *: v8.4.10:Upgrade for .Net 10 & MAUI 14.0, also updated the libraries to the latest version that supports .Net 10. mdail 11-18-25
  *: v7.3.9: Edit the white color to make them use Hex numbers instead of named colors to avoid problems on 
  *          some platforms * dark mode  mdail 10-30-25
  *: v7.3.8: Modify the framework to require a pdf file name or path to a pdf file the is either compressed to a gz 
